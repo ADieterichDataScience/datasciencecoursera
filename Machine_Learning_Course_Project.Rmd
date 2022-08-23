@@ -1,0 +1,118 @@
+---
+title: "Course Project - Machine Learning"
+author: "Andrew Dieterich"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Disclaimer
+
+Disclaimer
+Data for the source of this project comes from:
+
+Link: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+Cited as: Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+## Notes about this project:
+-the goal is to use data from accelerometers on 4 parts of 6 participants doing dumbbell curls
+-more info: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)
+
+-should predict "how" they did the exercise (classe variable at end of training set)
+
+-need to report model, cross validation, out of sample error, and prediction model to predict test cases (20 total)
+
+-link to a Github repo with your R markdown and compiled HTML file describing your analysis
+- use <2000 words, less than 5 figures
+
+Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5
+Apply your machine learning algorithm to the 20 test cases available in the test data above and submit your predictions in appropriate format to the Course Project Prediction Quiz for automated grading
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lattice)
+library(caret)
+library(randomForest)
+setwd("/Users/andrewdieterich/RStudio/datasciencecoursera")
+
+# importing training and test .csv files from Coursera downloads; removing DIV/O! values into 'NA' values:
+training<-read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!"))
+testing<-read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!"))
+```
+
+## Examining the training data set
+
+First I examined my training data set, in order to simplify and clean this dataset
+
+```{r}
+# examining these 2 files, dimensions, classes of the columns, and report dimensions:
+dim(testing); dim(training)
+
+# data processing
+
+## removing the first 7 columns with irrelevant data
+training <- training[,-c(1:7)]
+training<-training[, apply(training, 2, function(x) !any(is.na(x)))] 
+sum(is.na(training))
+```
+
+## Information about the data-set:
+ways (classe) A through E the 6 men did 10 dumbbell curl repetitions
+exactly according to the specification (Class A)
+throwing the elbows to the front (Class B)
+lifting the dumbbell only halfway (Class C)
+lowering the dumbbell only halfway (Class D)
+and throwing the hips to the front (Class E)
+
+## Now I make my training and test partitions:
+using caret package's createDataPartition function
+```{r}
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=FALSE)
+
+TRAINING <- training[inTrain,]
+TESTING <- training[-inTrain,]
+
+## NOTE, that I could not get the full ~13,000 row dataset to run on my computer
+## And had to reduce it to about 8,000 randomly sampled rows, using this line of code:
+TRAINING2 <- sample_n(TRAINING, 5000, replace = TRUE)
+
+# the model fit with a random forest machine learning algorithm
+ModelFit <- train(classe~ ., data=TRAINING2, method = "rf",
+                    trControl=trainControl(method="cv",number=2),prox=TRUE, verbose = FALSE)
+```
+## Results of the Random Forest model
+```{r}
+#reporting the results of the Random Forest model of the model fit:
+ModelFit
+
+# seeing the result, then the final model:
+ModelFit$finalModel
+####
+
+# Evaluation results with predict for test set (from the data partition):
+predict <- predict(ModelFit, newdata = TESTING)
+
+# confusion matrix:
+CONFUSION <- confusionMatrix(factor(predict), factor(TESTING$classe))
+CONFUSION
+
+# My accuracy is 97.5%, when testing this model on the test data partition
+## this my out of sample error is 0.025%
+## This is the validation step
+```
+## Results
+```{r}
+TEST_set_prediction <- predict(ModelFit, newdata=testing)
+TEST_set_prediction
+```
+And that is my test outcome for the 20 rows in the test set:
+B A B A A E D D A A B C B A E E A B B B
+
+I have used my random forest model to make $classe predictions based on the pml-testing.csv file
+which has been untouched since this project started, and is used only now, to test the model
+## the end
